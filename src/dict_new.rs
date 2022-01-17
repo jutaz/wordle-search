@@ -1,6 +1,5 @@
 use fst::{IntoStreamer, Set};
 use regex_automata::dense;
-use regex::Regex;
 
 use std::io::{BufRead, BufReader};
 use std::fs::File;
@@ -29,7 +28,6 @@ pub fn search (search: Vec<String>, must_have: Vec<char>) -> Result<usize, Box<d
         _ => unreachable!(),
     };
 
-    // Apply our fuzzy query to the set we built.
     let stream = set.search(&dfa).into_stream();
 
     let strs = stream.into_strs()?;
@@ -38,6 +36,7 @@ pub fn search (search: Vec<String>, must_have: Vec<char>) -> Result<usize, Box<d
         .iter()
         .filter(|word| must_have.iter().all(|c| word.to_owned().contains(c.to_owned())))
         .collect::<Vec<&String>>();
+
     let length = keys.len();
 
     for word in keys.into_iter() {

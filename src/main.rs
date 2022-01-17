@@ -1,6 +1,5 @@
 use dialoguer::{theme::ColorfulTheme, Input};
 use std::{process};
-use std::fmt::format;
 
 mod dict_new;
 
@@ -97,7 +96,7 @@ fn main() {
                 },
                 _ => {
                     if rm_mode {
-                        for (pos, char) in cmd.split("").enumerate() {
+                        for (_pos, char) in cmd.split("").enumerate() {
                             if "" != char {
                                 ignored_chars.push(char.chars().nth(0).unwrap());
                             }
