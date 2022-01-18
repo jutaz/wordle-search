@@ -132,7 +132,7 @@ fn main() {
     let mut ignored_chars: Vec<char> = Vec::new();
     let mut incorrect_position_chars = HashMap::new();
 
-    loop {
+    'main_loop: loop {
         if let Ok(cmd) = Input::<String>::with_theme(&ColorfulTheme::default())
             .with_prompt(match rm_mode {
                 true => "Remove chars",
@@ -159,7 +159,7 @@ fn main() {
                 _ => {
                     if rm_mode {
                         for (_pos, char) in cmd.split("").enumerate() {
-                            if "" != char {
+                            if ASCII_LOWER.contains(&char.chars().nth(0).unwrap()) {
                                 ignored_chars.push(char.chars().nth(0).unwrap());
                             }
                         }
@@ -167,6 +167,18 @@ fn main() {
                         rm_mode = false;
                         continue;
                     }
+
+                    for (_pos, char) in cmd.split("").enumerate() {
+                        if char.len() == 0 {
+                            continue;
+                        }
+                        let chr = char.chars().nth(0).unwrap();
+                        if !ASCII_LOWER.contains(&chr) && '?' != chr && '*' != chr {
+                            println!("Must be lowercase english chars.");
+                            continue 'main_loop;
+                        }
+                    }
+
                     let args = parse_into_args(cmd, &ignored_chars, &mut incorrect_position_chars);
                     if args.result.len() != 5 {
                         println!("Must be 5 slots.");
