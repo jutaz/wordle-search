@@ -159,6 +159,9 @@ fn main() {
                 _ => {
                     if rm_mode {
                         for (_pos, char) in cmd.split("").enumerate() {
+                            if char.len() == 0 {
+                                continue;
+                            }
                             if ASCII_LOWER.contains(&char.chars().nth(0).unwrap()) {
                                 ignored_chars.push(char.chars().nth(0).unwrap());
                             }
