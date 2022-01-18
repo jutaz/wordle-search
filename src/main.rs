@@ -178,7 +178,6 @@ fn main() {
                             println!("Some error!.");
                         },
                         Ok(must_haves) => {
-                            println!("must_haves, {:?}", must_haves);
                             match crate::dict_new::search(args.result, must_haves) {
                                 Err(err) => {
                                     println!("Error, {:?}", err);
