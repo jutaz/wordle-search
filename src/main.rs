@@ -1,6 +1,6 @@
 use dialoguer::{theme::ColorfulTheme, Input};
 use std::{process};
-
+use std::collections::HashMap;
 mod dict_new;
 
 static ASCII_LOWER: [char; 26] = [
@@ -14,13 +14,13 @@ static ASCII_LOWER: [char; 26] = [
 
 struct SearchArgs {
     result: Vec<String>,
-    must_have: Vec<char>,
+    must_have: Vec<(usize, char)>,
 }
 
-fn parse_into_args (guess: String, ignored_chars: &Vec<char>) -> SearchArgs {
+fn parse_into_args (guess: String, ignored_chars: &Vec<char>, incorrect_position_chars: &mut HashMap<usize, Vec<char>>) -> SearchArgs {
     let mut result: Vec<String> = Vec::new();
     let split = guess.split("");
-    let mut must_have: Vec<char> = Vec::new();
+    let mut must_have: Vec<(usize, char)> = Vec::new();
 
     let mut skip = false;
 
@@ -43,16 +43,54 @@ fn parse_into_args (guess: String, ignored_chars: &Vec<char>) -> SearchArgs {
         }
 
         if char.to_owned() == "*" {
-            must_have.push(guess.chars().nth(pos).unwrap());
-            result.push(
-                chars_to_match
+            must_have.push((pos, guess.chars().nth(pos).unwrap()));
+
+            let empty_vec = Vec::new();
+
+            let to_remove: &Vec<char> = match incorrect_position_chars.get(&pos) {
+                Some(chars) => chars,
+                None => &empty_vec,
+            };
+
+            let mut current_pos_chars_to_match = chars_to_match
                 .to_string()
+                .clone();
+
+            for chr in to_remove {
+                current_pos_chars_to_match = current_pos_chars_to_match.replace(
+                    *chr,
+                    ""
+                );
+            }
+
+            result.push(
+                current_pos_chars_to_match
                 .clone()
                 .replace(guess.chars().nth(pos).unwrap(), "")
             );
+
             skip = true;
         } else if char.to_owned() == "?" {
-            result.push(chars_to_match.to_string());
+
+            let empty_vec = Vec::new();
+
+            let to_remove: &Vec<char> = match incorrect_position_chars.get(&(&pos-1)) {
+                Some(chars) => chars,
+                None => &empty_vec,
+            };
+
+            let mut current_pos_chars_to_match = chars_to_match
+                .to_string()
+                .clone();
+
+            for chr in to_remove {
+                current_pos_chars_to_match = current_pos_chars_to_match.replace(
+                    *chr,
+                    ""
+                );
+            }
+
+            result.push(current_pos_chars_to_match.to_string());
         } else {
             result.push(char.to_owned());
         }
@@ -64,12 +102,35 @@ fn parse_into_args (guess: String, ignored_chars: &Vec<char>) -> SearchArgs {
     };
 }
 
+fn get_must_haves(incorrect_position_chars: &mut HashMap<usize, Vec<char>>, must_have: Vec<(usize, char)>) -> Result<Vec<char>, Box<dyn std::error::Error>> {
+
+    for (pos, chr) in must_have.iter() {
+        match incorrect_position_chars.get_mut(&*pos) {
+            Some(chars) => {
+                chars.push(*chr);
+            },
+            None => {
+                incorrect_position_chars.insert(*pos, vec![*chr]);
+            }
+        }
+    }
+
+    let must_haves: Vec<char> = incorrect_position_chars
+        .clone()
+        .into_values()
+        .flatten()
+        .collect();
+
+    Ok(must_haves)
+}
+
 fn main() {
     println!("Enter a word, substituting `?` for unknown characters.");
     println!("If there's a yellow letter, prefix it with `*`.");
 
     let mut rm_mode = false;
     let mut ignored_chars: Vec<char> = Vec::new();
+    let mut incorrect_position_chars = HashMap::new();
 
     loop {
         if let Ok(cmd) = Input::<String>::with_theme(&ColorfulTheme::default())
@@ -90,6 +151,7 @@ fn main() {
                         ":c" => {
                             println!("Clearing state.");
                             ignored_chars.clear();
+                            incorrect_position_chars.clear();
                         }
                         _ => println!("Unknown command.")
                     }
@@ -105,24 +167,36 @@ fn main() {
                         rm_mode = false;
                         continue;
                     }
-                    let args = parse_into_args(cmd, &ignored_chars);
+                    let args = parse_into_args(cmd, &ignored_chars, &mut incorrect_position_chars);
                     if args.result.len() != 5 {
                         println!("Must be 5 slots.");
                         continue;
                     }
 
-                    match crate::dict_new::search(args.result, args.must_have) {
-                        Err(err) => {
-                            println!("Error, {:?}", err);
-                            process::exit(1);
+                    match get_must_haves(&mut incorrect_position_chars, args.must_have) {
+                        Err(_) => {
+                            println!("Some error!.");
                         },
-                        Ok(count) => {
-                            match count {
-                                0 => continue,
-                                1 => process::exit(0),
-                                _ => continue,
+                        Ok(must_haves) => {
+                            println!("must_haves, {:?}", must_haves);
+                            match crate::dict_new::search(args.result, must_haves) {
+                                Err(err) => {
+                                    println!("Error, {:?}", err);
+                                    process::exit(1);
+                                },
+                                Ok(count) => {
+                                    match count {
+                                        0 => continue,
+                                        1 => {
+                                            println!("Found answer, Clearing state.");
+                                            ignored_chars.clear();
+                                            incorrect_position_chars.clear();
+                                        },
+                                        _ => continue,
+                                    }
+                                },
                             }
-                        },
+                        }
                     }
                 }
             }
